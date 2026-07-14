@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reescritor académico</title>
+  <style>
+    :root { --brand: #2563eb; --brand-dark: #19376f; --brand-soft: #edf4ff; --page: #f5f7fb; --surface: #ffffff; --text: #172033; --muted: #747f92; --line: #e6eaf1; --success: #218765; --success-soft: #e9f7f1; --warning: #c98200; --warning-soft: #fff5d8; --danger: #c34747; --danger-soft: #fff0f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--page); color: var(--text); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 2rem; margin-bottom: 5px; }
+    .subtitle { color: var(--muted); margin-bottom: 25px; }
+    .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.05); }
+    .panel-header { padding: 15px 20px; border-bottom: 1px solid var(--line); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .counter { font-size: 0.75rem; color: var(--muted); background: #f4f6fa; padding: 4px 10px; border-radius: 20px; }
+    textarea { width: 100%; min-height: 450px; border: none; padding: 20px; font-size: 14px; font-family: 'Georgia', serif; line-height: 1.7; resize: vertical; outline: none; }
+    textarea[readonly] { background: #fafbfc; }
+    .panel-footer { padding: 12px 20px; border-top: 1px solid var(--line); background: #fbfcfe; display: flex; gap: 10px; }
+    button { padding: 10px 20px; border-radius: 10px; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-primary { background: var(--brand-dark); color: white; }
+    .btn-secondary { background: white; color: var(--brand-dark); border: 1px solid #ccd6e8; }
+    .btn-ghost { background: #f1f4f8; color: #6e7890; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); place-items: center; z-index: 100; }
+    .overlay.show { display: grid; }
+    .spinner { width: 50px; height: 50px; border: 5px solid #e5edfc; border-top-color: var(--brand); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); font-weight: 600; font-size: 0.85rem; z-index: 200; opacity: 0; transition: 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+    .toast.error { color: #922f2f; border: 1px solid #f1cccc; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+    @media (max-width: 600px) { .meta { grid-template-columns: 1fr 1fr; } }
+    .meta-card { background: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    .meta-label { font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; font-weight: 700; }
+    .meta-value { font-size: 1.6rem; font-weight: 800; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✍️ Reescritor académico</h1>
+    <p class="subtitle">DeepSeek ejecuta Fase 1 (detección) y Fase 2 (humanización) en secuencia.</p>
+
+    <div class="workspace">
+      <div class="panel">
+        <div class="panel-header">Texto original <span class="counter" id="inputCounter">0 palabras</span></div>
+        <textarea id="inputText" placeholder="Pega aquí tu texto académico..."></textarea>
+        <div class="panel-footer">
+          <button class="btn-ghost" id="clearBtn">Limpiar</button>
+          <button class="btn-primary" id="processBtn">▶ Ejecutar dos fases</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Resultado <span class="counter" id="outputCounter">0 palabras</span></div>
+        <textarea id="outputText" readonly placeholder="Aquí aparecerá el texto reescrito..."></textarea>
+        <div class="panel-footer">
+          <button class="btn-secondary" id="copyBtn" disabled>📋 Copiar</button>
+          <button class="btn-secondary" id="downloadBtn" disabled>💾 Descargar TXT</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div class="meta-card"><div class="meta-label">Palabras original</div><div class="meta-value" id="originalWords">0</div></div>
+      <div class="meta-card"><div class="meta-label">Palabras final</div><div class="meta-value" id="rewrittenWords">0</div></div>
+      <div class="meta-card"><div class="meta-label">Tokens usados</div><div class="meta-value" id="totalTokens">0</div></div>
+      <div class="meta-card"><div class="meta-label">Estado</div><div class="meta-value" id="status" style="font-size:1rem;">Listo</div></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay"><div class="spinner"></div></div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let toastTimer;
+
+    function countWords(t) { return (t || '').trim().split(/\s+/).filter(w => w).length; }
+
+    function updateCounters() {
+      $('inputCounter').textContent = countWords($('inputText').value) + ' palabras';
+      $('outputCounter').textContent = countWords($('outputText').value) + ' palabras';
+    }
+
+    function showToast(msg, err = false) {
+      clearTimeout(toastTimer);
+      const t = $('toast');
+      t.textContent = msg; t.className = 'toast show' + (err ? ' error' : '');
+      toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    function processText() {
+      const text = $('inputText').value.trim();
+      if (text.length < 80) return showToast('Mínimo 80 caracteres.', true);
+
+      $('overlay').classList.add('show');
+      $('processBtn').disabled = true;
+      $('outputText').value = '';
+
+      fetch('/api/reescribir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+      .then(r => r.json())
+      .then(data => {
+        $('overlay').classList.remove('show');
+        $('processBtn').disabled = false;
+        if (data.error) return showToast(data.error, true);
+        $('outputText').value = data.text;
+        $('copyBtn').disabled = false;
+        $('downloadBtn').disabled = false;
+        $('originalWords').textContent = countWords(text);
+        $('rewrittenWords').textContent = countWords(data.text);
+        $('totalTokens').textContent = data.usage?.totalTokens || '—';
+        updateCounters();
+        showToast('✅ Texto reescrito correctamente.');
+      })
+      .catch(err => {
+        $('overlay').classList.remove('show');
+        $('processBtn').disabled = false;
+        showToast('Error de conexión.', true);
+      });
+    }
+
+    $('processBtn').addEventListener('click', processText);
+    $('clearBtn').addEventListener('click', () => { $('inputText').value = ''; $('outputText').value = ''; updateCounters(); });
+    $('copyBtn').addEventListener('click', () => { navigator.clipboard.writeText($('outputText').value); showToast('Copiado.'); });
+    $('downloadBtn').addEventListener('click', () => { const b = new Blob([$('outputText').value], {type:'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'reescrito.txt'; a.click(); });
+    $('inputText').addEventListener('input', updateCounters);
+    updateCounters();
+  </script>
+</body>
+</html>
